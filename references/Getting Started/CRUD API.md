@@ -273,3 +273,344 @@ GET /bank/_search
 
 - 검색 결과를 이해하는 것은 중요하다. ES는 request를 완료하고 검색 결과를 저장하지 않고, 너의 결과에 cursor를 오픈하지 않는다. -> 일회성, 휘발성 이라는 얘기인듯
 - SQL에서는 원한다면 stateful한 server-side 커서를 가져올 수 있는데 ES에는 없다.
+
+## Introducing the Query Language
+- ES는 쿼리를 실행하도록 JSON 스타일의 DSL을 제공한다. See [QueryDSL](https://www.elastic.co/guide/en/elasticsearch/reference/6.2/query-dsl.html)
+- Query Language는 간편하지만 처음 접하면 겁을 먹을 수 있다. 하지만 몇가지 예제와 함께하면 배울 수 있다.
+
+```
+GET /bank/_search
+{
+  "query": { "match_all": {} }
+}
+```
+- query는 쿼리 정의가 무엇인지 알려주고 match_all 부분은 단순히 실행하려는 쿼리 유형입니다.
+- match_all은 특정 인덱스 내의 모든 문서를 검색하는 쿼리
+
+```
+GET /bank/_search
+{
+  "query": { "match_all": {} },
+  "size": 1
+}
+```
+- size는 default가 10임
+
+```
+GET /bank/_search
+{
+  "query": { "match_all": {} },
+  "from": 10,
+  "size": 10
+}
+```
+- 10~19번째 문서를 추출하는 쿼리. ES는 0-based
+- from은 start index이고, size는 몇개를 가져올지 구하는 파라미터
+- paging에 구현에 좋다.
+- from의 default는 10임
+
+```
+GET /bank/_search
+{
+  "query": { "match_all": {} },
+  "sort": { "balance": { "order": "desc" } }
+}
+```
+- 10개를 가져오는데, balance를 desc로 가져옴
+
+## Executing Searches
+- 조금 더 Deep한 QueryDSL을 써보자
+- 리턴되는 JSON 문서의 필드를 보면 기본적으로 검색한 모든 부분을 가져옴
+- 원하지 않을 경우 몇가지 필드만 리턴할 수 있음
+
+```
+GET /bank/_search
+{
+  "query": { "match_all": {} },
+  "_source": ["account_number", "balance"]
+}
+
+{
+  "took": 3,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 1000,
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "bank",
+        "_type": "account",
+        "_id": "25",
+        "_score": 1,
+        "_source": {
+          "account_number": 25,
+          "balance": 40540
+        }
+      },
+      ...
+}
+```
+
+- 그동안 사용했던 match_all 쿼리는 모든 documents에 매치된다.
+- match query를 사용해서 필터링 해보자
+
+```
+GET /bank/_search
+{
+  "query": { "match": { "account_number": 20 } }
+}
+```
+- account_number == 20
+
+```
+GET /bank/_search
+{
+  "query": { "match": { "address": "mill" } }
+}
+```
+- address contains mill
+
+```
+GET /bank/_search
+{
+  "query": { "match": { "address": "mill lane" } }
+}
+```
+- address contains 'mill' || address contains 'lane'
+
+```
+GET /bank/_search
+{
+  "query": { "match_phrase": { "address": "mill lane" } }
+}
+```
+
+- address contains 'mill lane'
+
+> String 검색 시 match와 match_phrase의 차이!!
+
+- 이제 bool 쿼리를 알아보자. bool query는 작은 쿼리를 결합해서 bigger 쿼리로 만들어준다
+
+```
+GET /bank/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "address": "mill" } },
+        { "match": { "address": "lane" } }
+      ]
+    }
+  }
+}
+```
+- bool must 문법은 모든 쿼리가 true 일 때를 정의함
+
+- 반면에 should 문법은 A 또는 B인 조건
+
+```
+GET /bank/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        { "match": { "address": "mill" } },
+        { "match": { "address": "lane" } }
+      ]
+    }
+  }
+}
+```
+
+- must_not은 둘다 아닌 조건
+```
+GET /bank/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        { "match": { "address": "mill" } },
+        { "match": { "address": "lane" } }
+      ]
+    }
+  }
+}
+```
+
+- bool 쿼리 안에서 must, should, must_not을 정의 할 수 있다.
+- 또한, bool 쿼리 내에 bool 쿼리를 정의해서 multi-level boolean 로직을 지정할 수도 있다.
+
+```
+GET /bank/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "age": "40" } }
+      ],
+      "must_not": [
+        { "match": { "state": "ID" } }
+      ]
+    }
+  }
+}
+```
+- 나이는 40살이고, ID에 살지 않는 조건
+
+## Executing Filters
+- 이전 섹션에서 \_score 필드를 스킵했었음. score는 숫자값이고, 우리가 정의한 쿼리에 얼마만큼 매칭되는지 비교되는 값이다.
+- 높은 score는 관련도가 높다는 것이고, 낮은 score는 관련도가 낮다는 것이다.
+- 하지만 항상 score 값이 필요한것이 아니다. 부분적으로 'filtering' document set에서만 사용된다.
+- ES는 이러한 상황을 감지하고 자동으로 필요없는 스코어는 계산하지 않는 방식으로 optimize하게 쿼리를 실행한다.
+- bool 쿼리는 filter를 지원하므로 score를 계산하는 방식 변경없이 문서를 제한 할 수 있다.
+- 값이나 날짜를 필터링하는 range쿼리는 값의 범위로 filtering 하는 것을 도와준다.
+> filter, score가 무슨 상관관계인지 모르겠음..
+
+```
+GET /bank/_search
+{
+  "query": {
+    "bool": {
+      "must": { "match_all": {} },
+      "filter": {
+        "range": {
+          "balance": {
+            "gte": 20000,
+            "lte": 30000
+          }
+        }
+      }
+    }
+  }
+}
+```
+- bool 쿼리는 match_all(쿼리 파트)와 range(필터 파트)를 포함한다.
+- 우리는 어떤 쿼리던 쿼리파트와 필터파트로 분리 가능하다.
+- the range query makes perfect sense since documents falling into the range all match "equally", i.e., no document is more relevant than another. -> 범위에 속하는 쿼리는 동등하게 일치한다? 같은 score를 가진다는 얘기인것 같다.
+- match_all, match, bool, range 이외에도 많은 쿼리를 사용할 수 있지만 여기서 다루지 않을거임
+
+## Executing Aggregations
+- 어그리게이션은 그루핑과 통계 추출을 제공함
+- 쉽게 생각하면 SQL의 GROUP BY나 aggregate 함수를 생각하면 될듯
+- ES에서는 조회수를 반환하는 검색을 할 수 있고, 동시에 한번의 응답으로 조회수와 별도로 집계된 결과를 반환 가능
+- 이는 query와 다중 집계를 실행해서 간결하고 단순화된 API를 사용하여 한번의 작업으로 결과를 모두 얻을 수 있다는 것임
+
+```
+GET /bank/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_state": {
+      "terms": {
+        "field": "state.keyword"
+      }
+    }
+  }
+}
+```
+- state로 account를 그루핑하고 count desc로 10개 리턴
+> SELECT state, COUNT(*) FROM bank GROUP BY state ORDER BY COUNT(*) DESC
+- size를 0으로 주어서 검색 hits는 안보이고 aggregation 결과만 보인다.
+
+```
+GET /bank/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_state": {
+      "terms": {
+        "field": "state.keyword"
+      },
+      "aggs": {
+        "average_balance": {
+          "avg": {
+            "field": "balance"
+          }
+        }
+      }
+    }
+  }
+}
+```
+- 위의 예제에서 평균 balance를 검색
+- average_balance가 group_by_state 안에 있음을 확인해라
+- aggregation 내부에 aggregation을 둘 수 있다. 집계를 임의적으로 집계해서 데이터에서 필요로 하는 요약을 추출 할 수 있다.
+```
+GET /bank/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_state": {
+      "terms": {
+        "field": "state.keyword",
+        "order": {
+          "average_balance": "desc"
+        }
+      },
+      "aggs": {
+        "average_balance": {
+          "avg": {
+            "field": "balance"
+          }
+        }
+      }
+    }
+  }
+}
+```
+- 위의 예제에서 집계한 average_balance 가지고 소팅하도록 수정한 예제
+
+```
+GET /bank/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_age": {
+      "range": {
+        "field": "age",
+        "ranges": [
+          {
+            "from": 20,
+            "to": 30
+          },
+          {
+            "from": 30,
+            "to": 40
+          },
+          {
+            "from": 40,
+            "to": 50
+          }
+        ]
+      },
+      "aggs": {
+        "group_by_gender": {
+          "terms": {
+            "field": "gender.keyword"
+          },
+          "aggs": {
+            "average_balance": {
+              "avg": {
+                "field": "balance"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+- 20-30, 30-40, 40-50으로 1차 그루핑하고 내부에서 성별을 그루핑한 후에 성별의 평균 balance를 구하는 쿼리
+
+## Conclusion
+- ES는 단순하면서도 복잡한 프로덕트다.
+- 우리는 무엇이 기본인지, 내부를 어떻게 보는지, REST API로 어떻게 작동하는지를 배웠다.
+- 도움이 되었으면 좋겠다!
