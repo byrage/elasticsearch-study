@@ -45,7 +45,7 @@
 - 클라우드 환경에서는 짱짱 좋으나 샤드/노드가 분실될 경우 failover를 사용하셈
 
 #### Replicas
-- 1개 이상의 샤드를 복사하는 것을 replica shards 또는 replicas라고 함
+- 1개 이상의 샤드를 복사하는 것을 replica shards 또는 replicas라고 함 (당연)
 - Replicas가 중요한 2가지 이유
   1.  샤드/노드에 높은 가용성을 제공. 그러기 위해서는 replicas가 원본 노드에는 배치되면 안됨
   1. scale out을 통해 각각의 replicas를 병렬로 실행 가능
