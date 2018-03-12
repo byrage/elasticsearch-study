@@ -136,7 +136,7 @@ curl -XPOST 'localhost:9200/customer/_doc?pretty&pretty' -H 'Content-Type: appli
 }
 ```
 - PUT 대신에 POST를 사용하고 id를 부여하지 않으니 랜덤한 id가 나옴.
-> PUT은 ID가 필요하고 POST는 OPTIONAL이다.
+> PUT은 ID가 필요하고 기본적으로는 MODIFY 기능, POST는 ID가 OPTIONAL이고 CREATE 이다.
 
 ## Updating documents
 - ES에서 업데이트는 실제로는 기존 문서를 삭제 한다음, 업데이트가 적용된 새문서의 Index를 생성함
