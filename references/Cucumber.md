@@ -1,8 +1,10 @@
 ## Cucumber
 https://cucumber.io/docs
 
+- 쿠컴버는 BDD형식으로 Acceptance Test를 지원해주는 소프트웨어 툴이다.
 - 쿠컴버는 여러가지 언어, 프레임워크를 지원하는데 설치방법은 다르지만 제공하는 기능은 공통적이다.
-- 쿠컴버에서 각 "Feature"는 "gherkin"이라는 plain-text english언어(DSL?)로 작성되어 있다.
+> Implmentation Language, Framework이 필요한 이유 : feature에는 명세가 작성되어 있지만 실제로 테스트하기 위해서는 동작하는 기능이 필요함. feature에 작성된 파라미터를 가지고 Language 위에서 실제로 기능을 수행하는 것.
+- 쿠컴버에서 각 "Feature"는 "gherkin"이라는 plain-text english언어(DSL)로 작성되어 있다.
 
 ### Gherkin
 #### Gherkin
@@ -177,4 +179,4 @@ public void I_have_cukes_in_my_belly(int cukes) {
 - 쿠컴버가 스텝에 매칭하면, 모든 캡처그룹의 값을 파라미터로 전달함.
 - 캡처그룹은 스트링(\d+)이다. 정적언어에서는 자동으로 적절한 타입을 transform하고, 동적언어에서는 타입정보 없이는 기본적으로 transform하지 않는다.
 - Cucumber does not differentiate between the five step keywords Given, When, Then, And and But.
-- java, cucumber에서 키워드타입은 중요하지 않고, 어노테이션안에 텍스트로 쿠컴버 스텝을 찾고 스텝에서는 파라미터만 받는다.(인풋 파라미터, 결과 파라미터) 이를 자바로 구현함. 한마디로 어노테이션 타입, 쿠컴버 타입은 가독성을 위한것이지 별다른 기능이 없다고 봄. 
+- java, cucumber에서 키워드타입은 중요하지 않고, 어노테이션안에 텍스트로 쿠컴버 스텝을 찾고 스텝에서는 파라미터만 받는다.(인풋 파라미터, 결과 파라미터) 이를 자바로 구현함. 한마디로 어노테이션 타입, 쿠컴버 타입은 가독성을 위한것이지 별다른 기능이 없다고 봄.
